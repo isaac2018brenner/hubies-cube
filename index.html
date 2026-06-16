@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen" />
+  <meta name="apple-mobile-web-app-title" content="Hubie's Cube" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <link rel="manifest" href="manifest.json" />
+  <title>Hubie's Cube</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: 'Courier New', monospace;
+      color: #eee;
+      touch-action: none;
+    }
+
+    #game-container canvas {
+      display: block;
+      image-rendering: pixelated;
+    }
+
+    /* ── PWA install overlay (phones in browser) ── */
+    #pwa-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      z-index: 1000;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px;
+      backdrop-filter: blur(4px);
+    }
+    #pwa-overlay.visible { display: flex; }
+    #pwa-overlay .pwa-icon {
+      font-size: 56px;
+      margin-bottom: 20px;
+    }
+    #pwa-overlay h2 {
+      font-size: 22px;
+      color: #FFD500;
+      letter-spacing: 3px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+    #pwa-overlay p {
+      font-size: 14px;
+      color: #aaaacc;
+      line-height: 1.7;
+      max-width: 300px;
+    }
+    #pwa-overlay .steps {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #888899;
+      line-height: 2;
+    }
+    #pwa-overlay .steps span {
+      color: #FFD500;
+    }
+
+    /* ── Joystick (phones in PWA mode only) ── */
+    #joystick {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 160px;
+      height: 160px;
+      z-index: 100;
+    }
+    #joystick.visible { display: block; }
+
+    .jbtn {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: #aaaacc;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.1s;
+    }
+    .jbtn:active { background: rgba(255,255,255,0.22); color: #FFD500; }
+
+    /* positions within 160x160 grid, center of each btn = 80px */
+    #jbtn-up    { top: 0;    left: 56px; }
+    #jbtn-left  { top: 56px; left: 0;    }
+    #jbtn-center{ top: 56px; left: 56px; background: rgba(255,213,0,0.12); border-color: rgba(255,213,0,0.35); font-size: 20px; }
+    #jbtn-right { top: 56px; left: 112px;}
+    #jbtn-down  { top: 112px;left: 56px; }
+
+    /* ── Hint button ── */
+    #hint-btn {
+      display: none;
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      background: rgba(255,255,255,0.07);
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #aaaacc;
+      cursor: pointer;
+      letter-spacing: 2px;
+      z-index: 100;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #hint-btn.visible { display: block; }
+    #hint-btn:active { background: rgba(255,213,0,0.15); color: #FFD500; }
+
+    /* ── Hint popup ── */
+    #hint-popup {
+      display: none;
+      position: fixed;
+      top: 56px;
+      right: 16px;
+      background: rgba(10,10,30,0.95);
+      border: 2px solid rgba(255,213,0,0.3);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #FFD500;
+      max-width: 220px;
+      line-height: 1.6;
+      z-index: 200;
+      letter-spacing: 1px;
+    }
+    #hint-popup.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- PWA install overlay -->
+  <div id="pwa-overlay">
+    <div class="pwa-icon">🎮</div>
+    <h2>Add to Home Screen</h2>
+    <p>To play Hubie's Cube you need to install it as an app.</p>
+    <div class="steps" id="pwa-steps"></div>
+  </div>
+
+  <!-- Joystick (phones PWA only) -->
+  <div id="joystick">
+    <div class="jbtn" id="jbtn-up">▲</div>
+    <div class="jbtn" id="jbtn-left">◀</div>
+    <div class="jbtn" id="jbtn-center">⬡</div>
+    <div class="jbtn" id="jbtn-right">▶</div>
+    <div class="jbtn" id="jbtn-down">▼</div>
+  </div>
+
+  <!-- Hint button -->
+  <button id="hint-btn">HINT</button>
+  <div id="hint-popup"></div>
+
+  <div id="game-container"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+  <script src="src/CubeEngine.js"></script>
+  <script src="src/GameScene.js"></script>
+  <script src="src/main.js"></script>
+  <script src="src/ui.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
