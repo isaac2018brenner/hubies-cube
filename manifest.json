@@ -4,7 +4,7 @@
   "description": "A pixelated Rubik's Cube puzzle game",
   "start_url": "/hubies-cube/",
   "scope": "/hubies-cube/",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "portrait",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",

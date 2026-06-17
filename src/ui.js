@@ -16,7 +16,10 @@
 
   const isPWA = () =>
     window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true; // iOS Safari
+    window.matchMedia('(display-mode: fullscreen)').matches ||
+    window.navigator.standalone === true || // iOS Safari
+    document.referrer.includes('android-app://') || // Samsung/Android TWA
+    window.location.search.includes('pwa=true'); // manual fallback
 
   const isIOS = () => /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
