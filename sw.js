@@ -1,4 +1,4 @@
-const CACHE = 'hubies-cube-v2';
+const CACHE = 'hubies-cube-v3';
 const ASSETS = [
   '/hubies-cube/',
   '/hubies-cube/index.html',
@@ -21,6 +21,16 @@ const ASSETS = [
   '/hubies-cube/assets/hubie_right_start.png',
   '/hubies-cube/assets/hubie_right_end.png',
   'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js',
+  '/hubies-cube/assets/sound_effects/start_of_game.mp3',
+  '/hubies-cube/assets/sound_effects/walk_tile_to_tile.mp3',
+  '/hubies-cube/assets/sound_effects/face_turn_up.mp3',
+  '/hubies-cube/assets/sound_effects/face_turn_down.mp3',
+  '/hubies-cube/assets/sound_effects/face_turn_left.mp3',
+  '/hubies-cube/assets/sound_effects/face_turn_right.mp3',
+  '/hubies-cube/assets/sound_effects/color_swap.mp3',
+  '/hubies-cube/assets/sound_effects/same_color.mp3',
+  '/hubies-cube/assets/sound_effects/face_one_color_finished.mp3',
+  '/hubies-cube/assets/sound_effects/cube_solved.mp3',
 ];
 
 self.addEventListener('install', e => {

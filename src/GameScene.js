@@ -18,14 +18,15 @@
  *   - Both play simultaneously
  *   - Animation stops on last frame (Hubie stays visible until next move)
  *
- * DEVELOPMENT MODE: this.cube.loadDebugCube() — same mixed cube every load
- * DEPLOYMENT MODE:  this.cube.randomize()      — uncomment for production
  */
 
 class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   preload() {
+    // Preload all sound effects
+    SoundEngine.preload(this);
+
     const load = (key, file) => {
       this.load.spritesheet(key, `assets/${file}`, { frameWidth: 96, frameHeight: 96 });
     };
@@ -44,11 +45,7 @@ class GameScene extends Phaser.Scene {
   create() {
     this.cube = new CubeEngine();
 
-    // ── DEVELOPMENT: fixed mixed cube — same every load ──
-    this.cube.loadDebugCube();
-
-    // ── DEPLOYMENT: random cube — comment out during dev ──
-    // this.cube.randomize();
+    this.cube.randomize();
 
     this.TILE = 96;
     this.GAP  = 4;
@@ -94,14 +91,13 @@ class GameScene extends Phaser.Scene {
     this._setHubieIdlePosition(this.hubieIdle);
 
     this._setupInput();
-    this._buildDebugOverlay();
-    this._updateDebugOverlay();
 
     // Expose cube to ui.js for hint system
     window.gameCube = this.cube;
 
     // Sound engine
-    window.gameSound = new SoundEngine();
+    window.gameSound = new SoundEngine(this);
+    window.gameSound.init();
     window.gameSound.playLoad();
 
     // Face tracker
@@ -178,10 +174,6 @@ class GameScene extends Phaser.Scene {
       [Phaser.Input.Keyboard.KeyCodes.A]:     'LEFT',
       [Phaser.Input.Keyboard.KeyCodes.D]:     'RIGHT',
     };
-    // Resume audio context on first interaction (browser requirement)
-    this.input.keyboard.on('keydown', () => window.gameSound && window.gameSound.resume(), { once: true });
-    this.input.on('pointerdown', () => window.gameSound && window.gameSound.resume(), { once: true });
-
     this.input.keyboard.on('keydown', e => {
       if (this.isAnimating) return;
       if (keyMap[e.keyCode]) {
@@ -224,8 +216,6 @@ class GameScene extends Phaser.Scene {
     const result = this.cube.move(direction);
     if (!result) { this.isAnimating = false; return; }
 
-    this.cube.debugPrint();
-
     if (result.type === 'blocked') {
       console.log(`BLOCKED: Hubie(${COLOR_NAMES[this.cube.hubieColor]}) tried to enter same-color tile`);
       if (window.gameSound) window.gameSound.playBlocked();
@@ -240,11 +230,10 @@ class GameScene extends Phaser.Scene {
 
     } else {
       // Face transition
-      if (window.gameSound) window.gameSound.playFaceTransition();
+      if (window.gameSound) window.gameSound.playFaceTransition(direction);
       this._animateFaceTransition(direction, result);
     }
 
-    this._updateDebugOverlay();
     if (this.faceTracker) this.faceTracker.update();
 
     if (this.cube.isSolved()) {
@@ -301,7 +290,6 @@ class GameScene extends Phaser.Scene {
     this._applyHubieTint(this.hubieIdle);
     this._applyHubieTint(this.hubieStart);
     this._applyHubieTint(this.hubieEnd);
-    this._updateDebugOverlay();
     if (this.faceTracker) this.faceTracker.update();
   }
 
@@ -380,74 +368,6 @@ class GameScene extends Phaser.Scene {
         });
       }
     });
-  }
-
-  // ─── Debug overlay ────────────────────────────────────────────────────────
-
-  _buildDebugOverlay() {
-    const MINI = 14, MGAP = 2, FGAP = 8;
-    const faceW  = 3 * MINI + 2 * MGAP;
-    const totalW = 6 * faceW + 5 * FGAP;
-    const startX = (this.scale.width - totalW) / 2;
-    const startY = this.scale.height - 3 * MINI - 2 * MGAP - 28;
-
-    this.debugGraphics = [];
-    this.debugLabels   = [];
-
-    for (let f = 0; f < 6; f++) {
-      const fx = startX + f * (faceW + FGAP);
-      this.debugLabels.push(
-        this.add.text(fx + faceW / 2, startY - 12,
-          FACE_NAMES[f].substring(0, 2),
-          { fontSize: '9px', color: '#888899', fontFamily: 'Courier New' }
-        ).setOrigin(0.5, 1)
-      );
-      const tiles = [];
-      for (let t = 0; t < 9; t++) {
-        const g = this.add.graphics();
-        g.x = fx + (t % 3) * (MINI + MGAP);
-        g.y = startY + Math.floor(t / 3) * (MINI + MGAP);
-        tiles.push(g);
-      }
-      this.debugGraphics.push(tiles);
-    }
-
-    this.moveLabel = this.add.text(this.scale.width / 2, startY - 24,
-      'Moves: 0', { fontSize: '11px', color: '#aaaacc', fontFamily: 'Courier New' }
-    ).setOrigin(0.5);
-
-    this.posLabel = this.add.text(this.scale.width / 2, startY - 38,
-      '', { fontSize: '10px', color: '#666688', fontFamily: 'Courier New' }
-    ).setOrigin(0.5);
-  }
-
-  _updateDebugOverlay() {
-    const MINI = 14;
-    for (let f = 0; f < 6; f++) {
-      const face = this.cube.faces[f];
-      for (let t = 0; t < 9; t++) {
-        const g = this.debugGraphics[f][t];
-        g.clear();
-        g.fillStyle(COLOR_HEX[face[t]], 1);
-        g.fillRect(0, 0, MINI, MINI);
-        if (f === this.cube.currentFace) {
-          g.lineStyle(2, 0xffffff, 0.8);
-          g.strokeRect(0, 0, MINI, MINI);
-          const { row, col } = this.cube.playerPos;
-          if (Math.floor(t / 3) === row && t % 3 === col) {
-            g.fillStyle(0x000000, 0.5);
-            g.fillRect(3, 3, MINI - 6, MINI - 6);
-          }
-        }
-      }
-    }
-    this.moveLabel.setText(
-      `Moves: ${this.cube.moveCount}  |  Face: ${FACE_NAMES[this.cube.currentFace]}`
-    );
-    const { row, col } = this.cube.playerPos;
-    this.posLabel.setText(
-      `Hubie @ row:${row} col:${col}  color: ${COLOR_NAMES[this.cube.hubieColor]}`
-    );
   }
 
   // ─── Win screen ───────────────────────────────────────────────────────────
