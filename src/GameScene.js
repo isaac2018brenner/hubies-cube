@@ -99,6 +99,13 @@ class GameScene extends Phaser.Scene {
 
     // Expose cube to ui.js for hint system
     window.gameCube = this.cube;
+
+    // Sound engine
+    window.gameSound = new SoundEngine();
+    window.gameSound.playLoad();
+
+    // Face tracker
+    this.faceTracker = new FaceTracker(this, this.cube);
   }
 
   // ─── Tile rendering ───────────────────────────────────────────────────────
@@ -171,6 +178,10 @@ class GameScene extends Phaser.Scene {
       [Phaser.Input.Keyboard.KeyCodes.A]:     'LEFT',
       [Phaser.Input.Keyboard.KeyCodes.D]:     'RIGHT',
     };
+    // Resume audio context on first interaction (browser requirement)
+    this.input.keyboard.on('keydown', () => window.gameSound && window.gameSound.resume(), { once: true });
+    this.input.on('pointerdown', () => window.gameSound && window.gameSound.resume(), { once: true });
+
     this.input.keyboard.on('keydown', e => {
       if (this.isAnimating) return;
       if (keyMap[e.keyCode]) {
@@ -217,21 +228,24 @@ class GameScene extends Phaser.Scene {
 
     if (result.type === 'blocked') {
       console.log(`BLOCKED: Hubie(${COLOR_NAMES[this.cube.hubieColor]}) tried to enter same-color tile`);
+      if (window.gameSound) window.gameSound.playBlocked();
       this.isAnimating = false;
       return;
     }
 
     if (result.type === 'move') {
       this._refreshCurrentFace();
-      // Hubie's color never changes on a normal move
+      if (window.gameSound) window.gameSound.playMove(direction);
       this._playMoveAnimation(direction, fromPos, this.cube.playerPos, this.cube.hubieColor, this.cube.hubieColor);
 
     } else {
-      // Face transition — engine handles all state, do NOT restore anything
+      // Face transition
+      if (window.gameSound) window.gameSound.playFaceTransition();
       this._animateFaceTransition(direction, result);
     }
 
     this._updateDebugOverlay();
+    if (this.faceTracker) this.faceTracker.update();
 
     if (this.cube.isSolved()) {
       this.time.delayedCall(500, () => this._showWin());
@@ -282,14 +296,13 @@ class GameScene extends Phaser.Scene {
   _handleSwap() {
     const result = this.cube.swap();
     if (!result) return;
-    console.log(`SWAP: Hubie is now color index ${this.cube.hubieColor} = ${COLOR_NAMES[this.cube.hubieColor]}`);
-    // Refresh tiles so the tile under Hubie shows his old color
+    if (window.gameSound) window.gameSound.playSwap();
     this._refreshCurrentFace();
-    // Update Hubie's sprite tint to his new color
     this._applyHubieTint(this.hubieIdle);
     this._applyHubieTint(this.hubieStart);
     this._applyHubieTint(this.hubieEnd);
     this._updateDebugOverlay();
+    if (this.faceTracker) this.faceTracker.update();
   }
 
   // ─── Face slide transition ────────────────────────────────────────────────
@@ -440,6 +453,7 @@ class GameScene extends Phaser.Scene {
   // ─── Win screen ───────────────────────────────────────────────────────────
 
   _showWin() {
+    if (window.gameSound) window.gameSound.playWin();
     const w = this.scale.width, h = this.scale.height;
     this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.75);
     this.add.text(w / 2, h / 2 - 30, 'SOLVED!', {
